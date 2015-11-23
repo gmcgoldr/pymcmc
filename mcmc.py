@@ -90,7 +90,6 @@ class MCMC(object):
         """
         if len(self._scales) != self._npars:
             raise ValueError("Must provide one scale for each parameter")
-
         self._scales = np.array(scales, dtype=np.float64)
 
     def set_transform(self, transform):
@@ -117,16 +116,13 @@ class MCMC(object):
             the likelihood space, each column j is a parameter in the space of
             the proposal function.
         """
-        self._transform = np.array(transform, dtype=np.float64)
-
-        if len(self._transform.shape) != 2 or \
-                self._transform.shape != (self._npars, self._npars):
+        if self._transform.shape != (self._npars, self._npars):
             raise ValueError("Transformation matrix must have shape (npars, npars)")
+        self._transform = np.array(transform, dtype=np.float64)
 
     def getrate(self):
         """Get the acceptance rate from the last run"""
         return self._naccepted / self._nevaluated
-
 
     def proposal(self):
         """
