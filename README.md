@@ -8,11 +8,11 @@ Burning and thining is left to the user. For example `data[1000::2]` will burn 1
 
 The loop is implemented purely in python. Consequently, it is useful when the likelihood evaluation is relatively slow such that the bottleneck isn't the python overhead.
 
-The chain is *not adaptive*. It is best to learn appropriate scales in a separate run, and use these scales in future runs. This workflow is useful when the same space is sampled many times, with only small variations; for example when evaluating on multiple pseudo-data sets.
+The chain is *not adaptive*. It is best to learn appropriate scales in a separate run, and use these scales in future runs. This workflow is useful when the same space is sampled many times, with only small variations; for example when evaluating multiple pseudo-data sets.
 
 ## Example ##
 
-Given an object `space` with attribute `ndims` and methods `setpars`, `loglikelihood`.
+Following is an example of how a full work flow can be achieved using standard python tools.
 
 ```python
 import numpy as np
@@ -46,7 +46,7 @@ with open('scales.json', 'w') as fout:
     }
     json.dump(config, fout)
 
-# Run a spearate chain, using stored config
+# Prepare a new run using stored config
 with open('scales.json', 'r') as fin:
     config = json.load(fin)
 mcmc = MCMC(ndims)
