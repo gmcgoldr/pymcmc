@@ -116,9 +116,10 @@ class MCMC(object):
             the likelihood space, each column j is a parameter in the space of
             the proposal function.
         """
-        if self._transform.shape != (self._npars, self._npars):
-            raise ValueError("Transformation matrix must have shape (npars, npars)")
         self._transform = np.array(transform, dtype=np.float64)
+        if self._transform.shape != (self._npars, self._npars):
+            self._transform = None
+            raise ValueError("Transformation matrix must have shape (npars, npars)")
 
     def getrate(self):
         """Get the acceptance rate from the last run"""
