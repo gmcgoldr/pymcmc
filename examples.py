@@ -79,10 +79,9 @@ class LogLikelihoodSpace(object):
     variate normal distribution with non-trivial correlations.
     """
 
-    def __init__(self, ndims):
-        self.ndims = ndims
-        self.norm = MultiNorm(ndims)
-        self.x = np.zeros(ndims, dtype=float)
+    def __init__(self, norm):
+        self.norm = norm
+        self.x = np.zeros(self.norm._ndims, dtype=float)
 
     def setpars(self, x):
         """Set a point in the space where the likelihood will be measured."""
@@ -175,8 +174,9 @@ def probe_results(scales, ntrials, ndims, mode):
 
     for scale in scales:
         for _ in range(ntrials):
-            space = LogLikelihoodSpace(ndims)
-            mcmc = MCMC(space.ndims)
+            norm = MultiNorm(ndims)
+            space = LogLikelihoodSpace(norm)
+            mcmc = MCMC(norm._ndims)
             mcmc.verbose = False
             mcmc.rescale = scale
 
@@ -188,7 +188,7 @@ def probe_results(scales, ntrials, ndims, mode):
                 # Overestimate the variances by up to 50% (typical)
                 mcmc.set_scales(
                     space.norm._sigs * 
-                    (np.random.rand(space.ndims)/2.+1))
+                    (np.random.rand(norm._ndims)/2.+1))
 
             elif mode == 'pca':
                 # Transform the proposal to a space of independent variables
@@ -223,8 +223,9 @@ plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
 
 # 1D simple calse
-space = LogLikelihoodSpace(1)
-mcmc = MCMC(space.ndims)
+norm = MultiNorm(1)
+space = LogLikelihoodSpace(norm)
+mcmc = MCMC(norm._ndims)
 mcmc.rescale = 2
 mcmc.set_scales(space.norm._sigs)
 mcmc.run(10000, space.loglikelihood, space.setpars)
@@ -237,9 +238,10 @@ plt.savefig('trace_1D.pdf', format='pdf')
 plt.clf()
 
 # 2D case
-space = LogLikelihoodSpace(2)
+norm = MultiNorm(2)
+space = LogLikelihoodSpace(norm)
 print(space.norm._cov)
-mcmc = MCMC(space.ndims)
+mcmc = MCMC(norm._ndims)
 mcmc.rescale = 2
 mcmc.set_scales(space.norm._sigs)
 mcmc.run(10000, space.loglikelihood, space.setpars)
@@ -253,8 +255,9 @@ plt.savefig('axis_2D_1.pdf', format='pdf')
 plt.clf()
 
 # Plot the result for one axis, given a small and large scale
-space = LogLikelihoodSpace(50)
-mcmc = MCMC(space.ndims)
+norm = MultiNorm(50)
+space = LogLikelihoodSpace(norm)
+mcmc = MCMC(norm._ndims)
 mcmc.rescale = 2
 scales, transform = np.linalg.eigh(space.norm._cov)
 mcmc.set_transform(transform)
@@ -276,8 +279,9 @@ probe_results(scales, ntrials, 50, 'over')
 probe_results(scales, ntrials, 50, 'pca')
 
 # 1D traces
-space = LogLikelihoodSpace(1)
-mcmc = MCMC(space.ndims)
+norm = MultiNorm(1)
+space = LogLikelihoodSpace(norm)
+mcmc = MCMC(norm._ndims)
 mcmc.rescale = 0.1
 mcmc.set_scales(space.norm._sigs)
 mcmc.run(1000, space.loglikelihood, space.setpars)
@@ -286,7 +290,7 @@ trace_axis(space, 0, data)
 plt.savefig('trace_small.pdf', format='pdf')
 plt.clf()
 space.x *= 0
-mcmc = MCMC(space.ndims)
+mcmc = MCMC(norm._ndims)
 mcmc.rescale = 10
 mcmc.set_scales(space.norm._sigs)
 mcmc.run(1000, space.loglikelihood, space.setpars)
