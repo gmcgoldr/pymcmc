@@ -31,19 +31,34 @@ class OnlineStats(object):
 class MultiNorm(object):
     """Multivariate normal distribution"""
 
-    def __init__(self, ndims):
+    def __init__(self, ndims, mus=list(), sigs=list(), cut=(0, 0)):
         """
         Initialize with some dimensionality, given or random centre and scales,
         and a random covariance.
 
         :param ndims: int
             dimensionality of the parameter space
+        :param mus: iterable
+            coordinates for the distribution center
+        :param sigs: iterable
+            scale parameter for each axis
+        :param cut: (float, float)
+            make the likelihood zero in this range on the first axis
         """
         self._ndims = ndims
 
         # Default scales to order 10 to ensure no accidental unity
-        self._mus = np.random.randn(ndims) * 10
-        self._sigs = (np.random.rand(ndims)+0.5) * 10
+        if not mus:
+            self._mus = np.random.randn(ndims) * 10
+        else:
+            self._mus = np.array(mus)
+
+        if not sigs:
+            self._sigs = (np.random.rand(ndims)+0.5) * 10
+        else:
+            self._sigs = np.array(sigs)
+
+        self._cut = cut
 
         # Build a random correlation matrix
         self._corr = np.random.randn(ndims*ndims).reshape((ndims, ndims))
@@ -69,6 +84,8 @@ class MultiNorm(object):
 
     def loglikelihood(self, x):
         """Return the log likelihood at point x, with some constant offset"""
+        if self._cut[0] < x[0] < self._cut[1]:
+            return float('-inf')
         diff = x-self._mus
         return -0.5*(np.dot(diff.T, np.dot(self._icov, diff)))
 
@@ -96,8 +113,12 @@ class LogLikelihoodSpace(object):
 
     def sample(self, nsamples):
         """Obtain a true sampling of the space"""
-        return np.random.multivariate_normal(
+        samples = np.random.multivariate_normal(
             self.norm._mus, self.norm._cov, nsamples)
+        mask = \
+            (samples[:, 0] < self.norm._cut[0]) + \
+            (samples[:, 0] > self.norm._cut[1])
+        return samples[mask]
 
 
 def draw_axis(space, axis, data):
@@ -106,7 +127,7 @@ def draw_axis(space, axis, data):
     truth = space.sample(1000000)
     truth = truth[:, axis]
     truth -= space.norm._mus[axis]
-    truth_vals, bins = np.histogram(truth, 100, normed=True)
+    truth_vals, bins = np.histogram(truth, 40, rng, normed=True)
 
     binw = bins[1]-bins[0]
     binc = bins[:-1] + binw/2.
@@ -115,8 +136,8 @@ def draw_axis(space, axis, data):
 
     plt.xlabel(r'$x - \mu$')
     plt.ylabel(r'$P(x)$')
-    plt.hist(data - space.norm._mus[axis], 30, rng, normed=True)
-    plt.plot(binc, truth_vals)
+    plt.hist(data - space.norm._mus[axis], 40, rng, normed=True)
+    plt.plot(binc, truth_vals, 'o')
     plt.gca().set_xlim(rng)
 
 
@@ -235,6 +256,38 @@ plt.savefig('axis_1D.pdf', format='pdf')
 plt.clf()
 trace_axis(space, 0, data[:1000])
 plt.savefig('trace_1D.pdf', format='pdf')
+plt.clf()
+
+# 1D asymmetric case
+norm = MultiNorm(1, mus=[0], sigs=[1], cut=(float('-inf'), 0))
+space = LogLikelihoodSpace(norm)
+mcmc = MCMC(norm._ndims)
+mcmc.rescale = 2
+mcmc.set_scales(space.norm._sigs)
+mcmc.run(100000, space.loglikelihood, space.setpars)
+data = mcmc.data[0:10000:1]
+draw_axis(space, 0, data)
+plt.savefig('axis_asym_10k.pdf', format='pdf')
+plt.clf()
+data = mcmc.data[0::1]
+draw_axis(space, 0, data)
+plt.savefig('axis_asym_100k.pdf', format='pdf')
+plt.clf()
+
+# 1D bi-modal case
+norm = MultiNorm(1, mus=[0], sigs=[1], cut=(-0.5, 0))
+space = LogLikelihoodSpace(norm)
+mcmc = MCMC(norm._ndims)
+mcmc.rescale = 2
+mcmc.set_scales(space.norm._sigs)
+mcmc.run(100000, space.loglikelihood, space.setpars)
+data = mcmc.data[0:10000:1]
+draw_axis(space, 0, data)
+plt.savefig('axis_bimod_10k.pdf', format='pdf')
+plt.clf()
+data = mcmc.data[0::1]
+draw_axis(space, 0, data)
+plt.savefig('axis_bimod_100k.pdf', format='pdf')
 plt.clf()
 
 # 2D case
