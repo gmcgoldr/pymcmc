@@ -254,7 +254,7 @@ plt.clf()
 
 # Plot the result for one axis, given a small and large scale
 space = LogLikelihoodSpace(50)
-mcmc = MCMC(space.50)
+mcmc = MCMC(space.ndims)
 mcmc.rescale = 2
 scales, transform = np.linalg.eigh(space.norm._cov)
 mcmc.set_transform(transform)
