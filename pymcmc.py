@@ -88,9 +88,20 @@ class MCMC(object):
         :param scales: iterable
             list of scales to apply to each parameter
         """
-        if len(self._scales) != self._npars:
+        if len(scales) != self._npars:
             raise ValueError("Must provide one scale for each parameter")
         self._scales = np.array(scales, dtype=np.float64)
+
+    def set_initial(self, values):
+        """
+        Set initial parameter values.
+
+        :param scales: iterable
+            list of values for each parameter
+        """
+        if len(values) != self._npars:
+            raise ValueError("Must provide one value for each parameter")
+        self._values = np.array(values, dtype=np.float64)
 
     def set_transform(self, transform):
         """
@@ -213,6 +224,7 @@ class MCMC(object):
             self._excluded = np.array(self.exclude)
 
         # Evaluate and accept the starting point
+        setpars(self._values)
         last_prob = loglikelihood()
         self._nevaluated += 1
         self._naccepted += 1
