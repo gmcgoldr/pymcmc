@@ -5,7 +5,7 @@ import math
 import numpy as np
 from matplotlib import pyplot as plt
 
-from mcmc import MCMC
+from pymcmc import MCMC
 
 
 class OnlineStats(object):
