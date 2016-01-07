@@ -4,6 +4,9 @@ from __future__ import division
 import math
 import numpy as np
 from matplotlib import pyplot as plt
+_vmpl = list(map(int, plt.matplotlib.__version__.split('.')))
+if _vmpl[0] > 1 or (_vmpl[0] == 1 and _vmpl[1] >= 5):
+    plt.style.use('ggplot')
 
 from pymcmc import MCMC
 
@@ -98,18 +101,10 @@ class LogLikelihoodSpace(object):
 
     def __init__(self, norm):
         self.norm = norm
-        self.x = np.zeros(self.norm._ndims, dtype=float)
 
-    def setpars(self, x):
-        """Set a point in the space where the likelihood will be measured."""
-        x = np.asarray(x)
-        if x.shape != self.x.shape:
-            raise RuntimeError("Incorrect parameter dimensions")
-        self.x = x
-
-    def loglikelihood(self):
+    def loglikelihood(self, x):
         """Measure the log likelihood at the current point"""
-        return self.norm.loglikelihood(self.x)
+        return self.norm.loglikelihood(x)
 
     def sample(self, nsamples):
         """Obtain a true sampling of the space"""
@@ -217,7 +212,7 @@ def probe_results(scales, ntrials, ndims, mode):
                 mcmc.set_transform(transform)
                 mcmc.set_scales(scales**0.5)
 
-            mcmc.run(10000, space.loglikelihood, space.setpars)
+            mcmc.run(10000, space.loglikelihood)
             data = mcmc.data[0::1]
             results.append((scale, performance(space, data), mcmc.getrate()))
 
@@ -249,7 +244,7 @@ space = LogLikelihoodSpace(norm)
 mcmc = MCMC(norm._ndims)
 mcmc.rescale = 2
 mcmc.set_scales(space.norm._sigs)
-mcmc.run(10000, space.loglikelihood, space.setpars)
+mcmc.run(10000, space.loglikelihood)
 data = mcmc.data[0::1]
 draw_axis(space, 0, data)
 plt.savefig('axis_1D.pdf', format='pdf')
@@ -264,7 +259,7 @@ space = LogLikelihoodSpace(norm)
 mcmc = MCMC(norm._ndims)
 mcmc.rescale = 2
 mcmc.set_scales(space.norm._sigs)
-mcmc.run(100000, space.loglikelihood, space.setpars)
+mcmc.run(100000, space.loglikelihood)
 data = mcmc.data[0:10000:1]
 draw_axis(space, 0, data)
 plt.savefig('axis_asym_10k.pdf', format='pdf')
@@ -280,7 +275,7 @@ space = LogLikelihoodSpace(norm)
 mcmc = MCMC(norm._ndims)
 mcmc.rescale = 2
 mcmc.set_scales(space.norm._sigs)
-mcmc.run(100000, space.loglikelihood, space.setpars)
+mcmc.run(100000, space.loglikelihood)
 data = mcmc.data[0:10000:1]
 draw_axis(space, 0, data)
 plt.savefig('axis_bimod_10k.pdf', format='pdf')
@@ -297,7 +292,7 @@ print(space.norm._cov)
 mcmc = MCMC(norm._ndims)
 mcmc.rescale = 2
 mcmc.set_scales(space.norm._sigs)
-mcmc.run(10000, space.loglikelihood, space.setpars)
+mcmc.run(10000, space.loglikelihood)
 data = mcmc.data[1000::1]
 print(np.cov(data.T))
 draw_axis(space, 0, data)
@@ -315,7 +310,7 @@ mcmc.rescale = 2
 scales, transform = np.linalg.eigh(space.norm._cov)
 mcmc.set_transform(transform)
 mcmc.set_scales(scales**0.5)
-mcmc.run(100000, space.loglikelihood, space.setpars)
+mcmc.run(100000, space.loglikelihood)
 data = mcmc.data[10000::1]
 draw_axis(space, 0, data)
 plt.savefig('axis_50D.pdf', format='pdf')
@@ -337,7 +332,7 @@ space = LogLikelihoodSpace(norm)
 mcmc = MCMC(norm._ndims)
 mcmc.rescale = 0.1
 mcmc.set_scales(space.norm._sigs)
-mcmc.run(1000, space.loglikelihood, space.setpars)
+mcmc.run(1000, space.loglikelihood)
 data = mcmc.data[0::1]
 trace_axis(space, 0, data)
 plt.savefig('trace_small.pdf', format='pdf')
@@ -346,7 +341,7 @@ space.x *= 0
 mcmc = MCMC(norm._ndims)
 mcmc.rescale = 10
 mcmc.set_scales(space.norm._sigs)
-mcmc.run(1000, space.loglikelihood, space.setpars)
+mcmc.run(1000, space.loglikelihood)
 data = mcmc.data[0::1]
 trace_axis(space, 0, data)
 plt.savefig('trace_large.pdf', format='pdf')

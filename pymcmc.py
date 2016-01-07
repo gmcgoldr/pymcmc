@@ -92,9 +92,9 @@ class MCMC(object):
             raise ValueError("Must provide one scale for each parameter")
         self._scales = np.array(scales, dtype=np.float64)
 
-    def set_initial(self, values):
+    def set_values(self, values):
         """
-        Set initial parameter values.
+        Set parameter values.
 
         :param scales: iterable
             list of values for each parameter
@@ -190,16 +190,14 @@ class MCMC(object):
         self._last_time = self._proctime
         self._last_naccpeted = self._naccepted
 
-    def run(self, ntarget, loglikelihood, setpars):
+    def run(self, ntarget, loglikelihood):
         """
         Perform the MCMC computation. 
 
         :param ntarget: int
             number of points to evaluate
-        :param loglikelihood: func() -> float
-            returns the log likelihood for the current parameters
-        :param setpars: func(np.ndarray) -> None
-            set the parameters ahead of the next likelihood evluation
+        :param loglikelihood: func([float]) -> float
+            returns the log likelihood for the passed parameter values
         """
 
         if self.include and self.exclude:
@@ -224,8 +222,7 @@ class MCMC(object):
             self._excluded = np.array(self.exclude)
 
         # Evaluate and accept the starting point
-        setpars(self._values)
-        last_prob = loglikelihood()
+        last_prob = loglikelihood(self._values)
         self._nevaluated += 1
         self._naccepted += 1
         if self.tree:
@@ -240,10 +237,9 @@ class MCMC(object):
             # Propose a new point
             shifts = self.proposal()
             self._values += shifts
-            setpars(self._values)
 
             # Evaluate the likelihood at that point
-            prob = loglikelihood()
+            prob = loglikelihood(self._values)
             self._nevaluated += 1
 
             # MCMC: if new likelihood > old, keep the point. Otherwise if
@@ -256,7 +252,6 @@ class MCMC(object):
             # Case where MCMC doesn't accept the point, reset to last point
             else:
                 self._values -= shifts
-                setpars(self._values)
 
             # Store the evaluted point
             if self.tree:
