@@ -337,7 +337,6 @@ data = mcmc.data[0::1]
 trace_axis(space, 0, data)
 plt.savefig('trace_small.pdf', format='pdf')
 plt.clf()
-space.x *= 0
 mcmc = MCMC(norm._ndims)
 mcmc.rescale = 10
 mcmc.set_scales(space.norm._sigs)

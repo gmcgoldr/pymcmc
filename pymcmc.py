@@ -28,10 +28,7 @@ class MCMC(object):
         self.exclude = list()  # List of parameters to exclude (fixed)
         self.include = list()  # List of parametesr to include (excludes others)
         self.verbose = True  # Display progress
-        self.rescale = 1  # global scaling for parameters
-
-        self.data = None  # the np.ndarray of results if not writing to a tree
-        self.tree = None  # ROOT.TTree to write if not writing to array
+        self.rescale = 2  # global scaling for parameters
 
         # The parameter values
         self._values = np.zeros(self._npars, dtype=np.float64)
@@ -41,14 +38,16 @@ class MCMC(object):
         self._transform = None  # Transformation from proposal to likelihood
         self._excluded = None  # List of excluded parameters
 
-        self._ntarget = 0  # Target number of evaluations
+        # Mutable state during running (clear before running)
 
+        self.data = None  # the np.ndarray of results if not writing to a tree
+        self.tree = None  # ROOT.TTree to write if not writing to array
+
+        self._ntarget = 0  # Target number of evaluations
         self._nevaluated = 0  # The number of evaluated points
         self._naccepted = 0  # The number of points accepted
-
-        # Progress bar state
         self._proctime = 0;  # total processing time in ms
-        self._last_time = 0;  # processing time at last print
+        self._lasttime = 0;  # processing time at last print
 
     def configure_tree(self, tree=None, names=list()):
         """
@@ -171,7 +170,7 @@ class MCMC(object):
             eta = float("inf")
             bandwidth = float("inf")
 
-        instband = (self._proctime-self._last_time) / self.nprint
+        instband = (self._proctime-self._lasttime) / self.nprint
 
         rate = 100*self._naccepted/self._nevaluated
 
@@ -187,8 +186,82 @@ class MCMC(object):
         sys.stdout.flush()
 
         # Update instantaneous state
-        self._last_time = self._proctime
+        self._lasttime = self._proctime
         self._last_naccpeted = self._naccepted
+
+    def learn_scale(
+            self, 
+            loglikelihood, 
+            ntarget=1000, 
+            nmax=100,
+            ratemin=0.2,
+            ratemax=0.25):
+        """
+        Adjust the `rescale` parameter until the acceptance rate is in the
+        desired range.
+
+        :param loglikelihood: func([float]) -> float
+            returns the log likelihood for the passed parameter values
+        :param ntarget: int
+            number of points to evaluate
+        :param nmax: int
+            maximum steps to take trying to find optimal `rescale` value
+        :param ratemin: float
+            minimum acceptance rate
+        :param ratemax: float
+            maximum acceptance rate
+        """
+
+        # Modify internal state to avoid storing these chains, and to not
+        # show many progress bars
+        prev_tree = self.tree
+        self.tree = None
+        prev_verbose = self.verbose
+        self.verbose = False
+
+        niters = 0   # number of attempts to find optimal scale
+        step = 1  # step size to follow for next scale
+        side = 0  # -1 if below range, +1 if above range
+
+        # Continually change scale parameter until acceptance is in range
+        while True:
+            # Cap maximum number of attempts
+            niters += 1
+            if niters > nmax:
+                return False
+
+            # Run the MCMC with the current scale
+            self.run(ntarget, loglikelihood)
+            rate = self._naccepted/self._nevaluated
+
+            if rate < ratemin:
+                # Rate is too low, decrease scale to stay closer to high
+                # likelihood point resuling in more acceptance
+                self.rescale *= 1/(1+step)
+                # Acceptance was too large before, overshot optimal rate, so
+                # decrease step size to look between the two values next
+                if side == 1:
+                    step /= 2
+                # Indicate that last run had too low acceptance
+                side = -1
+            elif rate > ratemax:
+                # Rate is too high, increase scale to probe points further from
+                # the high likleihood region, resulting in less acceptance but
+                # better probing of the entire space
+                self.rescale *= (1+step)
+                if side == -1:
+                    step /= 2
+                side = 1
+            else:
+                # Rate is in the given range, stop adjusting it
+                break
+
+        # Restore the original state of verbosity and output 
+        self.tree = prev_tree
+        self.verbose = prev_verbose
+
+        # Succeeded at finding a parameter
+        return True
 
     def run(self, ntarget, loglikelihood):
         """
@@ -203,10 +276,12 @@ class MCMC(object):
         if self.include and self.exclude:
             raise ValueError("Can't specify both included and excluded parameters")
 
+        # Setup mutable state for this run
+        self._ntarget = ntarget
         self._nevaluated = 0
         self._naccepted = 0
-
-        self._ntarget = ntarget
+        self._proctime = 0
+        self._lasttime = 0
 
         # If no tree is provided, allocate memory to write out results
         if not self.tree:
