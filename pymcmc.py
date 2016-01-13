@@ -64,7 +64,7 @@ class MCMC(object):
         from ROOT import TTree
 
         if not tree:
-            self.tree = ROOT.TTree("Evaluations", "MCMC Evaluations")
+            self.tree = TTree("Evaluations", "MCMC Evaluations")
         else:
             self.tree = tree
 
