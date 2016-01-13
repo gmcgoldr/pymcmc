@@ -231,7 +231,7 @@ class MCMC(object):
                 return False
 
             # Run the MCMC with the current scale
-            self.run(ntarget, loglikelihood)
+            self.run(loglikelihood, ntarget)
             rate = self._naccepted/self._nevaluated
 
             if rate < ratemin:
@@ -263,14 +263,14 @@ class MCMC(object):
         # Succeeded at finding a parameter
         return True
 
-    def run(self, ntarget, loglikelihood):
+    def run(self, loglikelihood, ntarget):
         """
         Perform the MCMC computation. 
 
-        :param ntarget: int
-            number of points to evaluate
         :param loglikelihood: func([float]) -> float
             returns the log likelihood for the passed parameter values
+        :param ntarget: int
+            number of points to evaluate
         """
 
         if self.include and self.exclude:
