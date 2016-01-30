@@ -2,6 +2,7 @@ from __future__ import division
 import sys
 import math
 import time
+import warnings
 
 import numpy as np
 
@@ -194,7 +195,7 @@ class MCMC(object):
             loglikelihood, 
             ntarget=1000, 
             nmax=100,
-            ratemin=0.2,
+            ratemin=0.21,
             ratemax=0.25):
         """
         Adjust the `rescale` parameter until the acceptance rate is in the
@@ -228,6 +229,7 @@ class MCMC(object):
             # Cap maximum number of attempts
             niters += 1
             if niters > nmax:
+                warnings.warn("Failed to learn scale", RuntimeWarning)
                 return False
 
             # Run the MCMC with the current scale
