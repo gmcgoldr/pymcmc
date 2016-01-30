@@ -195,8 +195,8 @@ class MCMC(object):
             loglikelihood, 
             ntarget=1000, 
             nmax=100,
-            ratemin=0.21,
-            ratemax=0.25):
+            ratemin=0.22,
+            ratemax=0.24):
         """
         Adjust the `rescale` parameter until the acceptance rate is in the
         desired range.
