@@ -22,6 +22,7 @@ class MCMC(object):
         :param npars: int
             dimensionality of likelihood sapce
         """
+        np.random.seed(int(time.time())+id(self))
 
         self._npars = npars  # dimensions of the MCMC space
 
@@ -30,6 +31,8 @@ class MCMC(object):
         self.include = list()  # List of parametesr to include (excludes others)
         self.verbose = True  # Display progress
         self.rescale = 2  # global scaling for parameters
+
+        self.datapars = list()  # List of parameters to store in data output
 
         # The parameter values
         self._values = np.zeros(self._npars, dtype=np.float64)
@@ -246,6 +249,7 @@ class MCMC(object):
                     step /= 2
                 # Indicate that last run had too low acceptance
                 side = -1
+
             elif rate > ratemax:
                 # Rate is too high, increase scale to probe points further from
                 # the high likleihood region, resulting in less acceptance but
@@ -254,6 +258,7 @@ class MCMC(object):
                 if side == -1:
                     step /= 2
                 side = 1
+
             else:
                 # Rate is in the given range, stop adjusting it
                 break
@@ -286,9 +291,18 @@ class MCMC(object):
         self._lasttime = 0
 
         # If no tree is provided, allocate memory to write out results
-        if not self.tree:
-            self.data = np.zeros((self._ntarget, self._npars), dtype=np.float64)
+        if not self.tree and not self.datapars:
+            # For all parameters
+            self.data = np.zeros(
+                (self._ntarget, self._npars), 
+                dtype=np.float64)
+        elif not self.tree and self.datapars:
+            # For only the given parameters
+            self.data = np.zeros(
+                (self._ntarget, len(self.datapars)), 
+                dtype=np.float64)
         else:
+            # Don't store in memory (use tree)
             self.data = None
 
         # Build a list of parameter indices to exclude (don't shift those)
@@ -304,6 +318,8 @@ class MCMC(object):
         self._naccepted += 1
         if self.tree:
             self.tree.Fill()
+        elif self.datapars:
+            self.data[self._nevaluated-1] = self._values[self.datapars]
         else:
             self.data[self._nevaluated-1] = self._values
 
@@ -333,6 +349,8 @@ class MCMC(object):
             # Store the evaluted point
             if self.tree:
                 self.tree.Fill()
+            elif self.datapars:
+                self.data[self._nevaluated-1] = self._values[self.datapars]
             else:
                 self.data[self._nevaluated-1] = self._values
 
