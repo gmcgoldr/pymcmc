@@ -22,7 +22,7 @@ class MCMC(object):
         :param npars: int
             dimensionality of likelihood sapce
         """
-        np.random.seed(int(time.time())+id(self))
+        np.random.seed((int(time.time())+id(self))%4294967295)
 
         self._npars = npars  # dimensions of the MCMC space
 
