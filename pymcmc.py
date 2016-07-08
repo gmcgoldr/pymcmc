@@ -266,6 +266,7 @@ class MCMC(object):
         # Restore the original state of verbosity and output 
         self.tree = prev_tree
         self.verbose = prev_verbose
+        self.data = None
 
         # Succeeded at finding a parameter
         return True
