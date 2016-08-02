@@ -194,9 +194,7 @@ def probe_results(scales, ntrials, ndims, mode):
 
             elif mode == 'pca':
                 # Transform the proposal to a space of independent variables
-                scales, transform = np.linalg.eigh(norm._cov)
-                mcmc.set_transform(transform)
-                mcmc.set_scales(scales**0.5)
+                mcmc.set_covm(norm._cov)
 
             mcmc.run(norm.loglikelihood, 10000)
             data = mcmc.data[0::1]
@@ -224,10 +222,12 @@ np.set_printoptions(precision=2, suppress=True)
 plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
 
+rescale = 2.5
+
 # 1D simple calse
 norm = MultiNorm(1)
 mcmc = MCMC(norm._ndims)
-mcmc.rescale = 2
+mcmc.rescale = rescale
 mcmc.set_scales(norm._sigs)
 mcmc.run(norm.loglikelihood, 10000)
 data = mcmc.data[0::1]
@@ -241,7 +241,7 @@ plt.clf()
 # 1D asymmetric case
 norm = MultiNorm(1, mus=[0], sigs=[1], cut=(float('-inf'), 0))
 mcmc = MCMC(norm._ndims)
-mcmc.rescale = 2
+mcmc.rescale = rescale
 mcmc.set_scales(norm._sigs)
 mcmc.run(norm.loglikelihood, 100000)
 data = mcmc.data[0:10000:1]
@@ -256,7 +256,7 @@ plt.clf()
 # 1D bi-modal case
 norm = MultiNorm(1, mus=[0], sigs=[1], cut=(-0.5, 0))
 mcmc = MCMC(norm._ndims)
-mcmc.rescale = 2
+mcmc.rescale = rescale
 mcmc.set_scales(norm._sigs)
 mcmc.run(norm.loglikelihood, 100000)
 data = mcmc.data[0:10000:1]
@@ -272,7 +272,7 @@ plt.clf()
 norm = MultiNorm(2)
 print(norm._cov)
 mcmc = MCMC(norm._ndims)
-mcmc.rescale = 2
+mcmc.rescale = rescale
 mcmc.set_scales(norm._sigs)
 mcmc.run(norm.loglikelihood, 10000)
 data = mcmc.data[1000::1]
@@ -287,10 +287,8 @@ plt.clf()
 # Plot the result for one axis, given a small and large scale
 norm = MultiNorm(50)
 mcmc = MCMC(norm._ndims)
-mcmc.rescale = 2
-scales, transform = np.linalg.eigh(norm._cov)
-mcmc.set_transform(transform)
-mcmc.set_scales(scales**0.5)
+mcmc.rescale = rescale
+mcmc.set_covm(norm._cov)
 mcmc.run(norm.loglikelihood, 100000)
 data = mcmc.data[10000::1]
 draw_axis(norm, 0, data)

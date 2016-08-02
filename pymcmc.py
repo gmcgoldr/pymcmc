@@ -35,11 +35,14 @@ class MCMC(object):
         self.datapars = list()  # List of parameters to store in data output
 
         # The parameter values
-        self._values = np.zeros(self._npars, dtype=np.float64)
+        self._values = np.zeros(self._npars, dtype=float)
         # Scale the proposal by these factors for each parameter
-        self._scales = np.ones(self._npars, dtype=np.float64)
+        self._scales = np.ones(self._npars, dtype=float)
 
-        self._transform = None  # Transformation from proposal to likelihood
+        self._covm = np.zeros((self._npars, self._npars), dtype=float)
+        np.fill_diagonal(self._covm, 1)
+        self._mean = np.zeros(self._npars, dtype=float)
+
         self._excluded = None  # List of excluded parameters
 
         # Mutable state during running (clear before running)
@@ -86,14 +89,26 @@ class MCMC(object):
 
     def set_scales(self, scales):
         """
-        Set scaling factors to apply to the proposed points.
+        Set standard deviation of each parameter for the proposal function.
 
         :param scales: iterable
             list of scales to apply to each parameter
         """
         if len(scales) != self._npars:
             raise ValueError("Must provide one scale for each parameter")
-        self._scales = np.array(scales, dtype=np.float64)
+        self._covm.fill(0)
+        self._covm[np.diag_indices(self._npars)] = scales**2
+
+    def set_covm(self, covm):
+        """
+        Set the covariance matrix of the multivariate Normal from which to
+        draw proposed transitions.
+        """
+        covm = np.array(covm, dtype=float)
+        if covm.shape != self._covm.shape:
+            raise ValueError("Covariance matrix must have shape (npars, npars)")
+        else:
+            self._covm = covm
 
     def set_values(self, values):
         """
@@ -104,58 +119,27 @@ class MCMC(object):
         """
         if len(values) != self._npars:
             raise ValueError("Must provide one value for each parameter")
-        self._values = np.array(values, dtype=np.float64)
-
-    def set_transform(self, transform):
-        """
-        Set a mapping from the space in which to propose new points, to the
-        space of the likelihood function.
-
-        In the following example, the data with shape (nobs, npars) from a
-        prior MCMC run is used to do PCA. The PCA matrix, wherein each column
-        is a normalized eigenvector of the data's space, can be used as a
-        transform.
-
-        >>> covm = np.cov(data.T)
-        >>> scales, transform = np.linalg.eigh(covm)
-        >>> mcmc.set_transform(transform)
-        >>> mcmc.set_scales(scales**0.5)
-
-        The proposal function can then propose shifts along independent axes.
-        The proposal space is correctly scaled, accounting for correlations.
-
-        :param transform: array_like
-            transformation matrix M_{i,j} mapping the space in which to propose
-            new points to the likelihood space. Each row i is a parameter in
-            the likelihood space, each column j is a parameter in the space of
-            the proposal function.
-        """
-        self._transform = np.array(transform, dtype=np.float64)
-        if self._transform.shape != (self._npars, self._npars):
-            self._transform = None
-            raise ValueError("Transformation matrix must have shape (npars, npars)")
+        self._values = np.array(values, dtype=float)
 
     def getrate(self):
         """Get the acceptance rate from the last run"""
         return self._naccepted / self._nevaluated
 
-    def proposal(self):
+    def proposal(self, n=None):
         """
-        Propose a new point to move to in the likelihood space.
+        Propose a transition to a new point to probe, or a list transitions.
 
-        :return: np.ndarray
-            shifts to apply to each parameter for the next evaluation
+        :param n: int
+            number of transitions to propose
+        :return: np.array
+            proposed transitions with shape (self._npars,) or (n, self._npars)
         """
 
-        shifts = np.random.randn(self._npars)
-        shifts *= self._scales / self._npars**0.5 * self.rescale
+        shifts = np.random.multivariate_normal(self._mean, self._covm, n)
+        shifts *= self.rescale * self._npars**-0.5
 
-        if self._transform is not None:
-            shifts = np.dot(self._transform, shifts)
-
-        # Remove the shifts from parameters excluded from the MCMC
         if self._excluded:
-            shifts[self._excluded] = 0
+            shifts.T[self._excluded] = 0
 
         return shifts
 
@@ -296,12 +280,12 @@ class MCMC(object):
             # For all parameters
             self.data = np.zeros(
                 (self._ntarget, self._npars), 
-                dtype=np.float64)
+                dtype=float)
         elif not self.tree and self.datapars:
             # For only the given parameters
             self.data = np.zeros(
                 (self._ntarget, len(self.datapars)), 
-                dtype=np.float64)
+                dtype=float)
         else:
             # Don't store in memory (use tree)
             self.data = None
@@ -324,13 +308,14 @@ class MCMC(object):
         else:
             self.data[self._nevaluated-1] = self._values
 
+        shifts = self.proposal(self._ntarget-1)
+
         # Loop ends when the correct number of points have been accepted
-        while self._nevaluated < self._ntarget:
+        for shift in shifts:
             start = time.time()  # start time of this iteration
 
             # Propose a new point
-            shifts = self.proposal()
-            self._values += shifts
+            self._values += shift
 
             # Evaluate the likelihood at that point
             prob = loglikelihood(self._values)
@@ -345,7 +330,7 @@ class MCMC(object):
 
             # Case where MCMC doesn't accept the point, reset to last point
             else:
-                self._values -= shifts
+                self._values -= shift
 
             # Store the evaluted point
             if self.tree:
