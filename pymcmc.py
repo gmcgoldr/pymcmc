@@ -26,11 +26,11 @@ class MCMC(object):
 
         self._npars = npars  # dimensions of the MCMC space
 
-        self.nprint = 1000  # print at this interval of evaluations
+        self.nprint = 10000  # print at this interval of evaluations
         self.exclude = list()  # List of parameters to exclude (fixed)
         self.include = list()  # List of parametesr to include (excludes others)
         self.verbose = True  # Display progress
-        self.rescale = 2  # global scaling for parameters
+        self.rescale = 2.5  # global scaling for parameters
 
         self.datapars = list()  # List of parameters to store in data output
 
@@ -149,8 +149,11 @@ class MCMC(object):
         """
         prog = self._nevaluated / self._ntarget
 
+        proctime = time.time() - self._starttime
+        proctime *= 1e3
+
         if self._nevaluated > 0:
-            bandmean = self._proctime / 1000. / self._nevaluated
+            bandmean = proctime / 1000. / self._nevaluated
             eta = (self._ntarget-self._nevaluated) * bandmean
             etam = int(eta/60)  # minutes
             etas = int(eta-etam*60)  # seconds
@@ -158,7 +161,7 @@ class MCMC(object):
             eta = float("inf")
             bandwidth = float("inf")
 
-        instband = (self._proctime-self._lasttime) / self.nprint
+        instband = (proctime-self._lasttime) / self.nprint
 
         rate = 100*self._naccepted/self._nevaluated
 
@@ -174,7 +177,7 @@ class MCMC(object):
         sys.stdout.flush()
 
         # Update instantaneous state
-        self._lasttime = self._proctime
+        self._lasttime = proctime
         self._last_naccpeted = self._naccepted
 
     def learn_scale(
@@ -269,10 +272,10 @@ class MCMC(object):
             raise ValueError("Can't specify both included and excluded parameters")
 
         # Setup mutable state for this run
-        self._ntarget = ntarget
+        self._ntarget = int(ntarget)
         self._nevaluated = 0
         self._naccepted = 0
-        self._proctime = 0
+        self._starttime = 0
         self._lasttime = 0
 
         # If no tree is provided, allocate memory to write out results
@@ -310,10 +313,10 @@ class MCMC(object):
 
         shifts = self.proposal(self._ntarget-1)
 
+        self._starttime = time.time()  # start time of this iteration
+
         # Loop ends when the correct number of points have been accepted
         for shift in shifts:
-            start = time.time()  # start time of this iteration
-
             # Propose a new point
             self._values += shift
 
@@ -339,9 +342,6 @@ class MCMC(object):
                 self.data[self._nevaluated-1] = self._values[self.datapars]
             else:
                 self.data[self._nevaluated-1] = self._values
-
-            # Keep track of time per evaluation in ms
-            self._proctime += (time.time()-start)*1E3
 
             # Print a progress bar
             if self.verbose and self._nevaluated % self.nprint == 0:
